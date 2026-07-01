@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+    <title>倒计时</title>
+</head>
+<body>
+	<h1 id="a" style="position:absolute;text-align:center;">11<span>s</span></h1>
+	<script>
+		let ele=document.getElementById("a")
+		let a=11;
+		setInterval(()=>{
+			a--;
+			ele.innerText=a +"s";
+			if(a==10){
+				ele.style.color="#f00";
+			}
+			if(a==0){
+				a=1;
+				ele.innerText="时间到";
+			}
+		},1000);
+	</script>
+</body>
+</html>
