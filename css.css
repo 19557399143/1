@@ -1,0 +1,18 @@
+div{
+	height:1cm;
+	animation:6s move forwards;
+	position:absolute;
+	text-decoration:none;
+	animation-iteration-count:infinite;
+	font-size:30px;
+}
+@keyframes move{
+	0%{
+		top:10px;
+		left:-60%;
+	}
+	100%{
+		top:10px;
+		left:160%;
+	}
+}
