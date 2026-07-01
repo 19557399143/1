@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>导入HTML+拖动圆点工具</title>
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+body{
+  min-height:100vh;
+  background:#f5f5f5;
+  position:relative;
+}
+/* 导入文件区域 */
+.upload-box{
+  position:fixed;
+  top:15px;
+  left:15px;
+  z-index:99;
+}
+#fileInput{
+  padding:6px;
+}
+/* 坐标提示 */
+.tip{
+  position:fixed;
+  top:70px;
+  left:15px;
+  background:#000;
+  color:#fff;
+  padding:10px 14px;
+  border-radius:8px;
+  font-size:18px;
+  z-index:99;
+}
+/* 步长输入区域 */
+.step-input-area{
+  position:fixed;
+  top:130px;
+  left:15px;
+  z-index:99;
+}
+.step-input-area input{
+  width:80px;
+  padding:8px;
+  font-size:16px;
+  border:2px solid #2574ff;
+  border-radius:6px;
+  text-align:center;
+}
+/* 按钮区域 */
+.btn-box{
+  position:fixed;
+  bottom:30px;
+  left:0;
+  right:0;
+  text-align:center;
+  z-index:99;
+}
+button{
+  padding:10px 14px;
+  font-size:15px;
+  border:none;
+  border-radius:6px;
+  background:#2574ff;
+  color:#fff;
+  margin:4px;
+}
+/* 圆点样式 */
+.dot{
+  width:20px;
+  height:20px;
+  border-radius:50%;
+  background:#ff0000;
+  position:absolute;
+  top:0px;
+  left:0px;
+  touch-action:none;
+  z-index:100;
+}
+/* 外部HTML渲染容器 */
+.html-container{
+  width:100%;
+  min-height:100vh;
+}
+</style>
+</head>
+<body>
+<!-- 文件上传控件 -->
+<div class="upload-box">
+  <input type="file" id="fileInput" accept=".html">
+  <div>导入本地HTML文件</div>
+</div>
+
+<div class="tip">X: 0  Y: 0</div>
+
+<!-- 自定义移动像素输入框 -->
+<div class="step-input-area">
+  <input type="number" id="stepInput" value="20" min="1">
+  <span>px</span>
+</div>
+
+<div class="btn-box">
+  <button id="upBtn">上移</button>
+  <button id="downBtn">下移</button>
+  <button id="leftBtn">左移</button>
+  <button id="rightBtn">右移</button>
+  <button id="centerBtn">居中</button>
+</div>
+
+<!-- 外部HTML渲染容器 -->
+<div class="html-container" id="htmlWrap"></div>
+
+<!-- 可拖动圆点 -->
+<div class="dot" id="dot"></div>
+
+<script>
+const dot = document.getElementById('dot');
+const tip = document.querySelector('.tip');
+const stepInput = document.getElementById('stepInput');
+const upBtn = document.getElementById('upBtn');
+const downBtn = document.getElementById('downBtn');
+const leftBtn = document.getElementById('leftBtn');
+const rightBtn = document.getElementById('rightBtn');
+const centerBtn = document.getElementById('centerBtn');
+const fileInput = document.getElementById('fileInput');
+const htmlWrap = document.getElementById('htmlWrap');
+
+let drag = false;
+let offX, offY;
+
+// 更新坐标显示
+function updateTip(){
+  let x = Math.round(parseFloat(dot.style.left || 0));
+  let y = Math.round(parseFloat(dot.style.top || 0));
+  tip.innerText = `X: ${x}  Y: ${y}`;
+}
+
+// 获取步长
+function getStep(){
+  let num = Number(stepInput.value);
+  if(num < 1) return 1;
+  return num;
+}
+
+// ========== 新增：读取本地HTML文件并渲染 ==========
+fileInput.addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(res){
+    // 将读取到的html内容放入容器渲染
+    htmlWrap.innerHTML = res.target.result;
+  }
+  reader.readAsText(file);
+})
+
+// 触屏拖动圆点
+dot.addEventListener('touchstart',e=>{
+  drag = true;
+  let t = e.touches[0];
+  offX = t.clientX - dot.offsetLeft;
+  offY = t.clientY - dot.offsetTop;
+  e.preventDefault();
+})
+document.addEventListener('touchmove',e=>{
+  if(!drag) return;
+  let t = e.touches[0];
+  let x = t.clientX - offX;
+  let y = t.clientY - offY;
+  dot.style.left = x + 'px';
+  dot.style.top = y + 'px';
+  updateTip();
+  e.preventDefault();
+})
+document.addEventListener('touchend',()=>{
+  drag = false;
+})
+
+// 鼠标拖动（电脑端补充）
+dot.onmousedown = e => {
+  drag = true;
+  offX = e.clientX - dot.offsetLeft;
+  offY = e.clientY - dot.offsetTop;
+  document.onmousemove = ev => {
+    if(!drag) return;
+    dot.style.left = ev.clientX - offX + 'px';
+    dot.style.top = ev.clientY - offY + 'px';
+    updateTip();
+  }
+  document.onmouseup = () => drag = false;
+}
+
+// 上下左右按钮
+upBtn.onclick = function(){
+  let step = getStep();
+  let y = parseFloat(dot.style.top || 0);
+  dot.style.top = (y - step) + 'px';
+  updateTip();
+}
+downBtn.onclick = function(){
+  let step = getStep();
+  let y = parseFloat(dot.style.top || 0);
+  dot.style.top = (y + step) + 'px';
+  updateTip();
+}
+leftBtn.onclick = function(){
+  let step = getStep();
+  let x = parseFloat(dot.style.left || 0);
+  dot.style.left = (x - step) + 'px';
+  updateTip();
+}
+rightBtn.onclick = function(){
+  let step = getStep();
+  let x = parseFloat(dot.style.left || 0);
+  dot.style.left = (x + step) + 'px';
+  updateTip();
+}
+
+// 居中按钮
+centerBtn.onclick = function(){
+  const winW = window.innerWidth;
+  const winH = window.innerHeight;
+  const centerX = winW / 2 - 10;
+  const centerY = winH / 2 - 10;
+  dot.style.left = centerX + 'px';
+  dot.style.top = centerY + 'px';
+  updateTip();
+}
+</script>
+</body>
+</html>
