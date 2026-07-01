@@ -1,0 +1,29 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<style>
+		body.size-0 h1{color:#000;}
+		body.size-1 h1{color:#444;}
+		body.size-2 h1{color:#888;}
+		body.size-3 h1{color:#ccc;}
+	</style>
+</head>
+<body>
+	<h1>a</h1>
+	<button id="changeBtn">变颜色</button>
+	<script>
+		// 页面加载自动读取参数，切换样式
+		const params = new URLSearchParams(location.search);
+		let num = Number(params.get("size")) || 0;
+		document.body.classList.add("size-" + num);
+
+		// 按钮点击切换
+		document.getElementById("changeBtn").addEventListener("click", 		function () {
+		  let now = Number(new 			URLSearchParams(location.search).get("size")) || 0;
+		  let next = now + 1;
+		  location.search = "size=" + next;
+		})	
+	</script>
+</body>
+</html>
