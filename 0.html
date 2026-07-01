@@ -2,19 +2,34 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>贪吃蛇（慢速+中间食物）</title>
+    <!-- 禁止缩放、禁止页面滚动，解决iPad触摸跳掉 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>贪吃蛇 摇杆修复版</title>
     <style>
-        * {margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif;}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: sans-serif;
+        }
         body {
             display: flex;
             flex-direction: column;
             align-items: center;
             background: #1a1a1a;
             padding: 20px 0;
+            /* 禁止页面拖拽滚动 */
+            overflow: hidden;
         }
-        #gameBox {border: 3px solid #444; background: #000;}
-        .info {color: #fff; font-size: 22px; margin-bottom: 10px;}
+        #gameBox {
+            border: 3px solid #444;
+            background: #000;
+        }
+        .info {
+            color: #fff;
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
         .restart {
             margin: 12px 0 20px;
             padding: 8px 24px;
@@ -25,27 +40,26 @@
             border-radius: 6px;
             color: #000;
         }
-        .control {
-            display: grid;
-            grid-template-columns: 60px 60px 60px;
-            gap: 8px;
-            margin: 0 auto;
-        }
-        .ctrl-btn {
-            width: 60px;
-            height: 60px;
-            font-size: 26px;
-            border: none;
-            border-radius: 8px;
+        /* 摇杆容器 */
+        .joystickWrap {
+            width: 160px;
+            height: 160px;
             background: #444;
-            color: white;
-            cursor: pointer;
+            border-radius: 50%;
+            position: relative;
+            touch-action: none;
         }
-        .ctrl-btn:active {
-            background: #00cc66;
-            color: #000;
+        /* 中间白色原点 */
+        .joystickDot {
+            width: 50px;
+            height: 50px;
+            background: #fff;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
         }
-        .empty {visibility: hidden;}
     </style>
 </head>
 <body>
@@ -53,24 +67,17 @@
     <canvas id="gameBox" width="400" height="400"></canvas>
     <button class="restart" onclick="restartGame()">重新开始</button>
 
-    <div class="control">
-        <div class="empty"></div>
-        <button class="ctrl-btn" onclick="goUp()">↑</button>
-        <div class="empty"></div>
-
-        <button class="ctrl-btn" onclick="goLeft()">←</button>
-        <div class="empty"></div>
-        <button class="ctrl-btn" onclick="goRight()">→</button>
-
-        <div class="empty"></div>
-        <button class="ctrl-btn" onclick="goDown()">↓</button>
-        <div class="empty"></div>
+    <!-- 虚拟摇杆 -->
+    <div class="joystickWrap" id="stickBox">
+        <div class="joystickDot" id="dot"></div>
     </div>
 
     <script>
         const canvas = document.getElementById('gameBox');
         const ctx = canvas.getContext('2d');
         const scoreText = document.getElementById('score');
+        const stickBox = document.getElementById('stickBox');
+        const dot = document.getElementById('dot');
 
         const size = 20;
         const totalGrid = canvas.width / size;
@@ -80,7 +87,7 @@
         let score = 0;
         let timer;
 
-        // 食物只在中间区域生成，不靠墙壁
+        // 食物仅生成在画布中间，不靠墙壁
         function createFood() {
             const min = 2;
             const max = totalGrid - 3;
@@ -101,17 +108,19 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            // 边界判断容错
             if (head.x < 0 || head.y < 0 || head.x >= totalGrid || head.y >= totalGrid) {
                 clearInterval(timer);
                 alert('游戏结束！得分：' + score);
                 return;
             }
+            // 撞到自己判断
             for (let seg of snake) {
                 if (seg.x === head.x && seg.y === head.y) {
                     clearInterval(timer);
                     alert('游戏结束！得分：' + score);
                     return;
-            }
+                }
             }
 
             snake.unshift(head);
@@ -129,25 +138,81 @@
             drawBlock(food.x, food.y, '#f33');
         }
 
-        function goUp() {
-            if (dy !== 1) {dx = 0; dy = -1;}
+        // 摇杆逻辑
+        const radius = stickBox.offsetWidth / 2;
+        const dotR = dot.offsetWidth / 2;
+        let isDrag = false;
+
+        // 触摸/鼠标按下
+        function startDrag(e) {
+            e.preventDefault();
+            isDrag = true;
         }
-        function goDown() {
-            if (dy !== -1) {dx = 0; dy = 1;}
+        // 拖动移动（修复斜向摇杆乱变向撞自己）
+        function moveDrag(e) {
+            if (!isDrag) return;
+            e.preventDefault(); // 阻止页面滚动，解决跳掉核心
+            const rect = stickBox.getBoundingClientRect();
+            let clientX, clientY;
+            if (e.touches) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            // 相对圆心坐标
+            let x = clientX - rect.left - radius;
+            let y = clientY - rect.top - radius;
+            // 限制不超出大圆
+            const dist = Math.hypot(x, y);
+            const maxMove = radius - dotR;
+            if (dist > maxMove) {
+                x = x / dist * maxMove;
+                y = y / dist * maxMove;
+            }
+            // 移动白点
+            dot.style.left = radius + x + 'px';
+            dot.style.top = radius + y + 'px';
+
+            // 优化：只取偏移更大的单一方向，杜绝斜拉瞬间掉头撞自己
+            const deadZone = 15;
+            if (Math.abs(x) > deadZone || Math.abs(y) > deadZone) {
+                if (Math.abs(x) > Math.abs(y)) {
+                    // 左右方向
+                    if (x > 0 && dx !== -1) { dx = 1; dy = 0; }
+                    if (x < 0 && dx !== 1) { dx = -1; dy = 0; }
+                } else {
+                    // 上下方向
+                    if (y > 0 && dy !== -1) { dx = 0; dy = 1; }
+                    if (y < 0 && dy !== 1) { dx = 0; dy = -1; }
+                }
+            }
         }
-        function goLeft() {
-            if (dx !== 1) {dx = -1; dy = 0;}
-        }
-        function goRight() {
-            if (dx !== -1) {dx = 1; dy = 0;}
+        // 松开复位原点
+        function endDrag() {
+            isDrag = false;
+            dot.style.left = radius + 'px';
+            dot.style.top = radius + 'px';
         }
 
+        // 触屏事件（iPad）
+        stickBox.addEventListener('touchstart', startDrag);
+        stickBox.addEventListener('touchmove', moveDrag);
+        stickBox.addEventListener('touchend', endDrag);
+        stickBox.addEventListener('touchcancel', endDrag);
+        // 鼠标兼容电脑
+        stickBox.addEventListener('mousedown', startDrag);
+        document.addEventListener('mousemove', moveDrag);
+        document.addEventListener('mouseup', endDrag);
+
+        // 键盘备用
         document.addEventListener('keydown', e => {
             switch(e.key) {
-                case 'ArrowUp': goUp(); break;
-                case 'ArrowDown': goDown(); break;
-                case 'ArrowLeft': goLeft(); break;
-                case 'ArrowRight': goRight(); break;
+                case 'ArrowUp': if(dy!==1){dx=0;dy=-1;} break;
+                case 'ArrowDown': if(dy!==-1){dx=0;dy=1;} break;
+                case 'ArrowLeft': if(dx!==1){dx=-1;dy=0;} break;
+                case 'ArrowRight': if(dx!==-1){dx=1;dy=0;} break;
             }
         })
 
@@ -161,7 +226,6 @@
             timer = setInterval(gameLoop, 300);
         }
 
-        // 300毫秒，移动速度很慢
         timer = setInterval(gameLoop, 300);
     </script>
 </body>
